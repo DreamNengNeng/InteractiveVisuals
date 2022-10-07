@@ -75,9 +75,13 @@ def make_long_reason_dataframe(df, reason_prefix):
 
 
 st.title("Household Pulse Explorable")
+st.header("COVID19 Survey from U.S. Census Bureau")
+st.text("https://www.census.gov/data/experimental-data-products/household-pulse-survey.html")
+
 with st.spinner(text="Loading data..."):
     df = load_data()
-st.text("Visualize the overall dataset and some distributions here...")
+st.text("Let us Visualize the overall dataset")
+st.subheader("Race and Education Distribution")
 
 race_brush = alt.selection_multi(fields=['race'])
 education_brush = alt.selection_multi(fields=['education'])
@@ -106,10 +110,9 @@ st.altair_chart(race_chart & education_chart)
 st.write(df)
 
 st.header("Custom slicing")
-st.text("Implement your interactive slicing tool here...")
+st.text("Vaccined Percentage by Gender, Education, Race and Age Range")
 
 cols = st.columns(3)
-
 with cols[0]:
     genders = st.multiselect('Gender', df['gender'].unique())
 with cols[1]:
@@ -122,7 +125,6 @@ age_range = st.slider('Age',
                     max_value=int(df['age'].max()),
                     value=(int(df['age'].min()), int(df['age'].max()))
                     )
-
 
 
 slice_labels = get_slice_membership(df, genders, races, educations, age_range)
@@ -143,22 +145,23 @@ col1, col2 = st.columns(2)
 with col1:
     st.header("In Slice")
     st.metric('Percentage received vaccine', '{:.2%}'.format(received_vaccine_slice))
-    st.metric('Mean intention in slice (5 is certain to not get vaccine)', round(vaccine_intention_slice, 3))
+    st.metric('Mean intention in slice (value 5 is certain to not get vaccine)', round(vaccine_intention_slice, 3))
 
     chart = alt.Chart(vaccine_reasons_slice, title="In Slice").mark_bar().encode(
         x='sum(agree)',
-        y='reason',
+        y= alt.Y('reason', sort = '-x')
     )
+
     st.altair_chart(chart)
 
 with col2:
     st.header("Out of Slice")
     st.metric('Percentage received vaccine', '{:.2%}'.format(received_vaccine_noslice))
-    st.metric('Mean intention in slice (5 is certain to not get vaccine)', round(vaccine_intention_noslice, 3))
+    st.metric('Mean intention in slice (value 5 is certain to not get vaccine)', round(vaccine_intention_noslice, 3))
 
     chart = alt.Chart(vaccine_reasons_noslice, title="Out of Slice").mark_bar().encode(
         x='sum(agree)',
-        y='reason',
+        y= alt.Y('reason',sort = '-x')
     )
     st.altair_chart(chart)
 
