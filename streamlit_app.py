@@ -25,16 +25,17 @@ def get_slice_membership(df, genders, races, educations, age_range):
     their respective Streamlit components.
     """
     labels = pd.Series([1] * len(df), index=df.index)
+
     if genders:
         labels &= df['gender'].isin(genders)
-    if races:
-        labels &= df['race'].isin(races)
     if educations:
         labels &= df['education'].isin(educations)
+    if races:
+        labels &= df['race'].isin(races)
     if age_range is not None:
         labels &= df['age'] >= age_range[0]
         labels &= df['age'] <= age_range[1]
-    # ... complete this function for the other demographic variables
+        
     return labels
 
 def make_long_reason_dataframe(df, reason_prefix):
@@ -72,45 +73,24 @@ def make_long_reason_dataframe(df, reason_prefix):
 
 # MAIN CODE
 
-#picked = alt.selection_single(on ="mouseover", empty="none")
-#picked = alt.selection_single(fields=["Species"])
-#picked = alt.selection_single(fields=["Island"])
-#picked = alt.selection_single(on = "mouseover", fields=["Species", "Island"])
-#picked = alt.selection_muti()
-#picked = alt.selection_interval(encodlings=["x"])
 
-# scatter = alt.Chart(df).mark_point().encode(
-#     alt.X("Flipper Length (mm)", scale=alt.Scale(zero=False)),
-#     alt.Y("Body Mass (g)", scale=alt.Scale(zero=False)),
-#     alt.condition(picked,"Species", alt.value("lightgrey"))
-# ).add_selection(picked)
-
-# Part 1: Warmup and generating plots
 st.title("Household Pulse Explorable")
 with st.spinner(text="Loading data..."):
     df = load_data()
 st.text("Visualize the overall dataset and some distributions here...")
 
-if st.checkbox("Show Raw Data"):
-    st.write(df)
-
 race_brush = alt.selection_multi(fields=['race'])
 education_brush = alt.selection_multi(fields=['education'])
 
-# Bar Chart and with selection function
-st.text("Race and Education Counts")
 race_chart = alt.Chart(df).mark_bar().encode(
-    x = 'count()',
-    y = alt.Y('race', sort = 'x'),  # sort based on counts 
-    color = alt.condition(race_brush, alt.value('steelblue'), alt.value('lightgrey'))
-).transform_filter(education_brush).add_selection(race_brush)
+    x='count()',
+    y=alt.Y('race', sort='x'),
+    color=alt.condition(race_brush, alt.value('steelblue'), alt.value('lightgray'))
+).transform_filter(education_brush).add_selection(race_brush).interactive()
 
-# transform_filter (): pass in what you want to filter 
-
-# sort based on alphabetic 
 education_chart = alt.Chart(df).mark_bar().encode(
-    x = 'count()',
-    y = alt.Y('education', sort=[
+    x='count()',
+    y=alt.Y('education', sort=[
         'Less than high school',
         'Some high school',
         'High school graduate or equivalent',
@@ -118,19 +98,18 @@ education_chart = alt.Chart(df).mark_bar().encode(
         'Associates degree',
         'Bachelors degree',
         'Graduate degree']),
-    color = alt.condition(race_brush, alt.value('pink'), alt.value('lightgrey'))
-).transform_filter(race_brush).add_selection(education_brush)
+    color=alt.condition(education_brush, alt.value('salmon'), alt.value('lightgray'))
+).transform_filter(race_brush).add_selection(education_brush).interactive()
 
-st.write(race_chart & education_chart)
+st.altair_chart(race_chart & education_chart)
 
+st.write(df)
 
-# Part 2: Interactive Slicing Tool
 st.header("Custom slicing")
 st.text("Implement your interactive slicing tool here...")
 
-# have them side by side
 cols = st.columns(3)
-# genders, educations and races are categorical variables 
+
 with cols[0]:
     genders = st.multiselect('Gender', df['gender'].unique())
 with cols[1]:
@@ -138,84 +117,66 @@ with cols[1]:
 with cols[2]:
     races = st.multiselect('Race', df['race'].unique())
 
-# age is continuous variable 
-age_range = st.slider('Age', 
-                     min_value = int(df['age'].min()),
-                     max_value = int(df['age'].max()),
-                     value = (int(df['age'].min()), int(df['age'].max()))
-                     )
+age_range = st.slider('Age',
+                    min_value=int(df['age'].min()),
+                    max_value=int(df['age'].max()),
+                    value=(int(df['age'].min()), int(df['age'].max()))
+                    )
 
 
-# input_dropdown = alt.binding_select(options = ["Black", "While", "Asian", "Other/multiple"], name = "Select a Race: ")
-# picked = alt.selection_interval(encodings=["x"]) : allows to select a range, here is X axis
-# picked = alt.selection_multi() : allows to select multiple data points
-# picked = alt.selection_single(on = "mouseover", empty = "none")
-# picked = alt.selection_single(encodings=["color"], bind = input_dropdown)
-
-# bar = alt.Chart(df).mark_bar().encode(
-#     alt.X ('had_covid') ,
-#     alt.Y ('count()'),
-#     color = alt.condition(picked, "race", alt.value("lightgrey"))
-# ).add_selection(picked)
-
-# st.text("Covid Distribution")
-# st.altair_chart(bar)
 
 slice_labels = get_slice_membership(df, genders, races, educations, age_range)
-# st.write(slice_labels)
+
 st.write("The sliced dataset contains {} elements".format(slice_labels.sum()))
 
-vaccine_reasons_slice = make_long_reason_dataframe(df[slice_labels], 'why_no_vaccine')
-st.write(vaccine_reasons_slice)
-
+vaccine_reasons_slice = make_long_reason_dataframe(df[slice_labels], 'why_no_vaccine_')
 received_vaccine_slice = df[slice_labels]['received_vaccine'].mean()
-
-
-received_vaccine_slice = df[slice_labels]['received_vaccine'].mean()
-received_vaccine_slice = df[slice_labels]['received_vaccine'].mean()
-received_vaccine_slice = df[slice_labels]['received_vaccine'].mean()
-received_vaccine_slice = df[slice_labels]['received_vaccine'].mean()
-
-
-
-st.metric('Percentage Received Vaccine', '{:.2%}'.format(received_vaccine_slice))
-
 vaccine_intention_slice = df[slice_labels]['vaccine_intention'].mean()
 
-st.metric('Mean intention in slice (5 is certain to not get vaccine)', round(vaccine_intention_slice,3))
-
-chart = alt.Chart(vaccine_reasons_slice).mark_bar().encode(
-    x = 'sum(agree)',
-    y = 'reason',
-)
-st.altair_chart(chart)
-st.write(vaccine_reasons_slice)
+vaccine_reasons_noslice = make_long_reason_dataframe(df[~slice_labels], 'why_no_vaccine_')
+received_vaccine_noslice = df[~slice_labels]['received_vaccine'].mean()
+vaccine_intention_noslice = df[~slice_labels]['vaccine_intention'].mean()
 
 
+col1, col2 = st.columns(2)
+
+with col1:
+    st.header("In Slice")
+    st.metric('Percentage received vaccine', '{:.2%}'.format(received_vaccine_slice))
+    st.metric('Mean intention in slice (5 is certain to not get vaccine)', round(vaccine_intention_slice, 3))
+
+    chart = alt.Chart(vaccine_reasons_slice, title="In Slice").mark_bar().encode(
+        x='sum(agree)',
+        y='reason',
+    )
+    st.altair_chart(chart)
+
+with col2:
+    st.header("Out of Slice")
+    st.metric('Percentage received vaccine', '{:.2%}'.format(received_vaccine_noslice))
+    st.metric('Mean intention in slice (5 is certain to not get vaccine)', round(vaccine_intention_noslice, 3))
+
+    chart = alt.Chart(vaccine_reasons_noslice, title="Out of Slice").mark_bar().encode(
+        x='sum(agree)',
+        y='reason',
+    )
+    st.altair_chart(chart)
+
+#st.write(vaccine_reasons_slice)
 
 
-# Part 3: Sampling
 st.header("Person sampling")
-st.text("Implement a button to sample and describe a random person here...")
-# let us do some selection 
-# my try: data_sample = df.sample(n=1, random_state = 1)
-# Straight white male aged 71 with graduate degree and received vaccine. 
 
-no_vaccine = st.checkbox("Sample a person who has not reeived the vaccine")
+no_vaccine = st.checkbox("Sample a person who has not received the vaccine")
 
-if st.button("Get Random Person"): # if button is clicked
+if st.button("Get Random Person"):
     df_to_sample = df[~df['received_vaccine']] if no_vaccine else df
-    person = df.sample(n=1).iloc[0]
-    st.write(f""" This person is a **{person.age}**-year-old
-    ** {person.sexual_orientation}**, 
-    ** {person.marital_status.lower()}**
-    ** {person.gender.lower()}**,
-    of **{person.race}** race ({'**Hispanic**' if person.hispanic else '**non-Hispanic**'}).""")
+    person = df_to_sample.sample(n=1).iloc[0]
+    st.write(f""" This person is a **{person.age}**-year-old **{person.sexual_orientation}**, **{person.marital_status.lower()}** **{person.gender.lower()}**, of **{person.race}** race ({'**Hispanic**' if person.hispanic else '**non-Hispanic**'}).""")
+    
     if person.received_vaccine:
-        st.write(f"They **have** received the vaccine.")    
-    else: 
-        st.write(f"They **have not** received the vaccine and their intention to not get the vaccine is **{person.vaccine_intention}**.")
-        st.write(f"Thier reasons for not getting the vaccine include: **" 
-                +",".join([c.replace("why_no_vaccine_", "")
-                for c in df.columns if "why_no_vaccine" in c and person[c] > 0] ) + "**")
-                
+        st.write(f"They **have** received the vaccine.")
+    else:
+        st.write(f"They **have not** receive the vaccine and their intention to not get the vaccine is **{person.vaccine_intention}**.")
+        st.write(f"Their reasons for not getting the vaccine include: **" + ", ".join([c.replace("why_no_vaccine_", "") for c in df.columns if "why_no_vaccine" in c and person[c] > 0]) + "**")
+        
