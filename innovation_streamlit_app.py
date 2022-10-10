@@ -205,4 +205,4 @@ st.text("-> Santa Barbara, CA has one highly cited category which is 6 - Others"
 
 st.subheader("Among the top 5 highly cited zones, Vermont shares 2 of 5. And Vermont’s patent category covers 5 categories out of 7. That concludes why Vermont is the top 1 inventor state in the U.S.  ")
 st.subheader("Massachusetts is the Drugs and Medical inventor incubator state, And California, no surprise, is the state where Computers and Communications inventors grew up. ")
-st.markdown("This project was created by Cuiting Li and Haoyu Wang for the [Interactive Data Science](https://dig.cmu.edu/ids2022) course at [Carnegie Mellon University](https://www.cmu.edu).")
+st.markdown("This project was created by Haoyu Wang for the [Interactive Data Science](https://dig.cmu.edu/ids2022) course at [Carnegie Mellon University](https://www.cmu.edu).")
