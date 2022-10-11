@@ -3,8 +3,6 @@ st.set_page_config(layout="wide")  # increase the width of web page
 import pandas as pd
 import altair as alt
 from re import U
-from st_aggrid import GridOptionsBuilder, AgGrid, GridUpdateMode, DataReturnMode
-
 
 st.title("What are the factors can impact innovation in America?")
 
