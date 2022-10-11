@@ -1,7 +1,9 @@
 import streamlit as st
+st.set_page_config(layout="wide")  # increase the width of web page
 import pandas as pd
 import altair as alt
 from re import U
+from st_aggrid import GridOptionsBuilder, AgGrid, GridUpdateMode, DataReturnMode
 
 
 st.title("What are the factors can impact innovation in America?")
@@ -10,7 +12,7 @@ st.title("What are the factors can impact innovation in America?")
 def load_data(file_path):
     return pd.read_csv(file_path)
 @st.cache
-def get_slice_membership(df, genders, races, educations):
+def get_slice_membership(df, states, cohort_range):
     """
     Implement a function that computes which rows of the given dataframe should
     be part of the slice, and returns a boolean pandas Series that indicates 0
@@ -26,48 +28,16 @@ def get_slice_membership(df, genders, races, educations):
 
     if states:
         labels &= df['state'].isin(states)
-    if years:
-        labels &= df['year'].isin(years)
-    if cohorts:
-        labels &= df['cohort'].isin(cohorts)
-
+    if cohort_range is not None:
+        labels &= df['cohort'] >= cohort_range[0]
+        labels &= df['cohort'] <= cohort_range[1]
     return labels
-# def make_long_category(df, category_prefix):
-#     """
-#     ======== You don't need to edit this =========
-    
-#     Utility function that converts a dataframe containing multiple columns to
-#     a long-style dataframe that can be plotted using Altair. For example, say
-#     the input is something like:
-    
-#          | inventor_cat_1 | inventor_cat_2 | ...
-#     -----+----------------+----------------+------
-#     1    | 0.0001         | 0.0002         | 
-#     2    | 0.0000         | 0.0001         |
-    
-#     This function, if called with the reason_prefix 'inventor_cat', will
-#     return a long dataframe:
-    
-#          | id | category          | value
-#     -----+----+-------------------+---------
-#     1    | 1  | inventor_cat_1    | 0.0001
-#     2    | 1  | inventor_cat_2    | 0.0002
-#     3    | 2  | inventor_cat_1    | 0.0000
-#     4    | 2  | inventor_cat_2    | 0.0001
-    
-#     For every person (in the returned id column), there may be one or more
-#     rows for each reason listed. The agree column will always contain 1s, so you
-#     can easily sum that column for visualization.
-#     """
-#     categories = df[[c for c in df.columns if c.startswith(category_prefix)]].copy()
-#     categories = pd.wide_to_long(categories, category_prefix, i='id', j='category', suffix='.+')
-#     return categories
 
 
 #############################################################################################################
 ################################################### Main Code ###############################################
 #############################################################################################################
-
+st.header("Part1. The Importance of Exposure to Innovation")
 df = load_data('Innovation by Current State, Year of Birth and Age.csv')
 st.text("Let's look at the dataset - Innovation by Current State, Year of Birth and Age")
 
@@ -75,16 +45,25 @@ st.text("Let's look at the dataset - Innovation by Current State, Year of Birth 
 if st.checkbox("Show Raw Data"):
     st.write(df)
 
-st.header("which state has the highest average number of grants per individual over the years?")
+st.subheader("Which state has the highest average number of grants per individual over the years?")
 
 brush = alt.selection(type='interval', encodings =['x'])
-chart = alt.Chart(df).mark_bar().encode(
-    x=alt.X("state", sort='y', scale=alt.Scale(zero=False)),
-    y=alt.Y(field = "num_grants", aggregate = 'mean', type ='quantitative', scale=alt.Scale(zero=False))
-).properties(
-    width=700, height=400
-).add_selection(brush).interactive()
-st.write(chart)
+bars = alt.Chart(df).mark_bar().encode(
+        x=alt.X("state", sort='y', scale=alt.Scale(zero=False)),
+        y=alt.Y(field = "num_grants", aggregate = 'mean', type ='quantitative', scale=alt.Scale(zero=False))
+    ).properties(
+        width=700, height=400
+    ).add_selection(brush).interactive()
+
+line = alt.Chart().mark_rule(color='pink').encode(
+      y='mean(num_grants):Q',
+      size=alt.SizeValue(3)
+).transform_filter(
+    brush
+)
+
+st.write(alt.layer(bars, line, data=df))
+
 st.subheader("The top 3 states are Vermont, Masschusetts and California")
 st.subheader("It is not surprising that MA and CA are within the top states, but why Vermont? \
               Let us dig deeper to find out possible reasons.")
@@ -121,7 +100,7 @@ with cols[1]:
 st.subheader("Vermont has the highest average inventor rate and Masschusetts is the top 1 state with the average higly cited inventor rate")
 
 
-st.header("Let us look into commuting zones for these top 3 states(CA, MA and VT)")
+st.subheader("Let us look into commuting zones for these top 3 states(CA, MA and VT)")
 top5Cited_zone = alt.Chart(inventor).mark_bar().encode(
    alt.Y("par_czname", sort = '-x' , title = 'Childhood Commuting Zone of Residence'), # descending order
    alt.X("average(top5cit)", title = "Average Highly Cited Inventor Rate")
@@ -157,6 +136,7 @@ zone_chart = alt.Chart(top3InventorState).mark_bar().encode(
 st.altair_chart(state_chart & zone_chart)
 
 
+st.subheader("Vermont has the highest average inventor rate and Masschusetts is the top 1 state with the average higly cited inventor rate")
 st.subheader("From interactive charts above, we can see that childhood commuting zone of residence: \
               Oak Bluffs in MA is top No.1 with highest share of children with patent\
               citations in the top 5 percent of their birth cohort (using total number of citations).\
@@ -170,26 +150,7 @@ st.text("top5cit_zone&state")
 st.write(top5ZoneState)
 
 
-
-# st.subheader("Custom Slicing")
-
-# cols = st.columns(3)
-# with cols[0]:
-#     states = st.multiselect('State', df['state'].unique())
-# with cols[1]:
-#     years = st.multiselect('Year', df['year'].unique())
-# with cols[2]:
-#     cohorts = st.multiselect('Cohort', df['cohort'].unique())
-
-# slice_labels = get_slice_membership(top5Zone, states, years, cohorts)
-
-# st.write("The sliced dataset contains {} elements".format(slice_labels.sum()))
-
-
 top5ZoneState_top5cit = top5ZoneState[['par_czname', 'top5cit_cat_1','top5cit_cat_2','top5cit_cat_3','top5cit_cat_4','top5cit_cat_5','top5cit_cat_6','top5cit_cat_7']]
-
-
-# top5_cit_category = pd.wide_to_long(top5ZoneState_HighCat, stubnames ='top5cit_cat_', i=["par_czname"], j = 'id')
 
 top5ZoneState_top5cit["id"] = top5ZoneState_top5cit.index
 top5_cit_category = pd.wide_to_long(top5ZoneState_top5cit,["top5cit_cat_"], i = "id", j ="seq")
@@ -205,4 +166,119 @@ st.text("-> Santa Barbara, CA has one highly cited category which is 6 - Others"
 
 st.subheader("Among the top 5 highly cited zones, Vermont shares 2 of 5. And Vermont’s patent category covers 5 categories out of 7. That concludes why Vermont is the top 1 inventor state in the U.S.  ")
 st.subheader("Massachusetts is the Drugs and Medical inventor incubator state, And California, no surprise, is the state where Computers and Communications inventors grew up. ")
-st.markdown("This project was created by Haoyu Wang for the [Interactive Data Science](https://dig.cmu.edu/ids2022) course at [Carnegie Mellon University](https://www.cmu.edu).")
+st.markdown("This project was created by Cuiting Li and Haoyu Wang for the [Interactive Data Science](https://dig.cmu.edu/ids2022) course at [Carnegie Mellon University](https://www.cmu.edu).")
+
+
+
+st.header("Part2. The year most inventors were born")
+
+
+st.text("The dataset reports patenting outcomes for individuals aged 20 to 80 in years 1996-2012 by year of birth")
+
+
+# create Tooltip, below code are referenced from https://altair-viz.github.io/gallery/multiline_tooltip.html
+
+nearest = alt.selection(type='single', nearest=True, on='mouseover',fields=['x'], empty='none')
+
+line = alt.Chart(df).mark_line(interpolate='basis').encode(
+                   x= alt.X('cohort', scale=alt.Scale(zero=False), title = "Year of Birth"), 
+                   y= alt.Y(field = "num_grants", aggregate = 'mean', type ='quantitative', sort='-y', scale=alt.Scale(zero=False), title = "average number of patents grants per individual"),
+                   color = alt.Color('age')
+                )
+selectors = alt.Chart(df).mark_point().encode(
+    x='x:Q',
+    opacity=alt.value(0)).add_selection(nearest)
+
+# Draw points on the line, and highlight based on selection
+points = line.mark_point().encode(
+    opacity=alt.condition(nearest, alt.value(1), alt.value(0))
+)
+# Draw text labels near the points, and highlight based on selection
+text = line.mark_text(align='left', dx=5, dy=-5).encode(
+    text=alt.condition(nearest, 'y:Q', alt.value(' '))
+)
+# Draw a rule at the location of the selection
+rules = alt.Chart(df).mark_rule(color='gray').encode(
+    x='x:Q',
+).transform_filter(
+    nearest
+)
+# Put the five layers into a chart and bind the data
+layer = alt.layer(
+    line, selectors, points, rules, text
+).properties(
+    width=600, height=300
+)
+st.altair_chart(layer)
+
+st.subheader("Cohort Range (1960 - 1965) has the highest average number of patents grants per individual")
+
+nearest = alt.selection(type='single', nearest=True, on='mouseover',fields=['x'], empty='none')
+
+line = alt.Chart(df).mark_bar(interpolate='basis').encode(
+                   x= alt.X('year', scale=alt.Scale(zero=False), title = "Calendar Year"), 
+                   y= alt.Y(field = "num_grants", aggregate = 'mean', type ='quantitative', sort='-y', scale=alt.Scale(zero=False), title = "average number of patents grants per individual"),
+                   color= alt.Color('cohort')
+                )
+selectors = alt.Chart(df).mark_point().encode(
+    x='x:Q',
+    opacity=alt.value(0)).add_selection(nearest)
+
+# Draw points on the line, and highlight based on selection
+points = line.mark_point().encode(
+    opacity=alt.condition(nearest, alt.value(1), alt.value(0))
+)
+# Draw text labels near the points, and highlight based on selection
+text = line.mark_text(align='left', dx=5, dy=-5).encode(
+    text=alt.condition(nearest, 'y:Q', alt.value(' '))
+)
+# Draw a rule at the location of the selection
+rules = alt.Chart(df).mark_rule(color='gray').encode(
+    x='x:Q',
+).transform_filter(
+    nearest
+)
+# Put the five layers into a chart and bind the data
+layer2 = alt.layer(
+    line, selectors, points, rules, text
+).properties(
+    width=600, height=300
+)
+st.altair_chart(layer2)
+
+st.subheader("Calendar year 2003 has the highest average number of patents grants per individual.")               
+st.markdown(
+    """
+    #### Inventors aged around 40 (=2003 -1963) are most productive per average number of patents grants per individual :sunglasses:
+    """
+    )
+
+
+
+st.subheader("Custom Slicing Based on State and Year of Birth")
+
+cols = st.columns(2)
+with cols[0]:
+    states = st.multiselect('State: ',df['state'].unique())  #drop down for categorical variable
+with cols[1]:
+    cohort_range = st.slider('Cohort',
+                    min_value=int(df['cohort'].min()),
+                    max_value=int(df['cohort'].max()),
+                    value=(int(df['cohort'].min()), int(df['cohort'].max()))
+                    )
+
+slice_labels = get_slice_membership(df, states, cohort_range)
+
+# st.write("The sliced dataset contains {} elements".format(slice_labels.sum()))
+
+Inslice_num_grants = df[slice_labels]['num_grants'].mean()
+Noslice_num_grants = df[~slice_labels]['num_grants'].mean()
+
+col1, col2 = st.columns(2)
+with col1:
+    st.header("In Slice")
+    st.metric('Num of Grants', '{:.2%}'.format(Inslice_num_grants))
+
+with col2:
+    st.header("Out of Slice")
+    st.metric('Num of Grants', '{:.2%}'.format(Noslice_num_grants))
